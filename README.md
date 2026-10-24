@@ -103,13 +103,13 @@ item across pages.
 observable from the other process, so `BookmarkStore.reload()` runs on
 `willBecomeActive` in the extension and `onAppear` in the browser.
 
+**Icons are generated.** `swift scripts/make-icons.swift` draws the app icon
+and every iMessage App Icon size from one drawing, as opaque PNGs (App Store
+Connect rejects alpha). Edit the script and re-run it rather than editing the
+PNGs.
+
 ## Not done yet
 
-- **iMessage app icon.** The extension ships without one, so it shows a
-  placeholder in the Messages drawer. Add it in Xcode: open
-  `Sources/MessagesExtension/Assets.xcassets`, add an **iMessage App Icon**
-  set, then set `ASSETCATALOG_COMPILER_APPICON_NAME` on the extension target.
-  The app icon slot in `Resources/Assets.xcassets` is likewise empty.
 - No tests. The provider decoders are the obvious first place for them.
 - Bookmarks are local only; no iCloud sync.
 - Bookmark reordering exists in `BookmarkStore.move` but is not wired to a UI.

@@ -52,6 +52,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(EXTENSION_BUNDLE_ID)
         INFOPLIST_FILE: Sources/MessagesExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: Sources/MessagesExtension/GifStashMessages.entitlements
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     sources:
       - path: Sources/MessagesExtension
         excludes:

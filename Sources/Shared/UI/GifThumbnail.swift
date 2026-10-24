@@ -10,59 +10,66 @@ struct GifThumbnail: View {
 
     @State private var data: Data?
     @State private var failed = false
+    @State private var taps = 0
+
+    private let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
 
     var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(.quaternary)
+        Button {
+            taps += 1
+            onTap()
+        } label: {
+            ZStack {
+                Rectangle()
+                    .fill(Color.surface)
 
-            if let data {
-                AnimatedGifView(key: item.id, data: data)
-            } else if failed {
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
-            } else {
-                ProgressView()
-                    .controlSize(.small)
+                if let data {
+                    AnimatedGifView(key: item.id, data: data)
+                        .transition(.opacity)
+                } else if failed {
+                    Image(systemName: "photo.badge.exclamationmark")
+                        .foregroundStyle(.tertiary)
+                        .font(.callout)
+                } else {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .shimmer()
+                }
             }
-
-            bookmarkButton
+            .aspectRatio(item.aspectRatio, contentMode: .fit)
+            .clipShape(shape)
+            .contentShape(shape)
         }
-        .aspectRatio(item.aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-        .accessibilityElement(children: .combine)
+        .buttonStyle(PressableButtonStyle())
+        .overlay(alignment: .bottomTrailing) { bookmarkButton }
+        .sensoryFeedback(.impact(weight: .light), trigger: taps)
         .accessibilityLabel(item.title.isEmpty ? "GIF" : item.title)
         .accessibilityHint("Double tap to send")
         .task(id: item.previewURL) { await load() }
     }
 
     private var bookmarkButton: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                Button(action: onBookmark) {
-                    Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(6)
-                        .background(.black.opacity(0.45), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark")
-            }
+        Button(action: onBookmark) {
+            Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(isBookmarked ? AnyShapeStyle(.tint) : AnyShapeStyle(.white))
+                .symbolEffect(.bounce, value: isBookmarked)
+                .frame(width: 28, height: 28)
+                .background(.ultraThinMaterial, in: Circle())
+                .environment(\.colorScheme, .dark)
         }
-        .padding(5)
+        .buttonStyle(.plain)
+        .padding(6)
+        .sensoryFeedback(.impact(weight: .medium), trigger: isBookmarked)
+        .accessibilityLabel(isBookmarked ? "Remove bookmark" : "Bookmark")
     }
 
     private func load() async {
         data = nil
         failed = false
         do {
-            data = try await GifLoader.shared.data(for: item.previewURL)
+            let loaded = try await GifLoader.shared.data(for: item.previewURL)
+            withAnimation(.easeOut(duration: 0.25)) { data = loaded }
         } catch {
             // Scrolling cancels in-flight loads. URLSession reports that as
             // URLError.cancelled rather than CancellationError, and neither is

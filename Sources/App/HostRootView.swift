@@ -8,19 +8,48 @@ struct HostRootView: View {
         TabView(selection: $selection) {
             NavigationStack {
                 GifBrowserView(onSelect: { detail = $0 })
-                    .navigationTitle("GifStash")
                     .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) { BrandMark() }
+                    }
             }
             .tabItem { Label("Browse", systemImage: "square.grid.2x2") }
             .tag(0)
 
             HowToUseView()
-                .tabItem { Label("Setup", systemImage: "questionmark.circle") }
+                .tabItem { Label("Guide", systemImage: "sparkles") }
                 .tag(1)
         }
         .sheet(item: $detail) { item in
             GifDetailSheet(item: item)
         }
+    }
+}
+
+/// The app name with a small gradient badge, used in the navigation bar.
+struct BrandMark: View {
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(BrandGradient(), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            Text("GifStash")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Matches the app icon's violet-to-magenta background.
+struct BrandGradient: ShapeStyle {
+    func resolve(in environment: EnvironmentValues) -> LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 0.42, green: 0.22, blue: 0.95), Color(red: 0.93, green: 0.25, blue: 0.62)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 
@@ -39,11 +68,12 @@ struct GifDetailSheet: View {
         NavigationStack {
             VStack(spacing: 16) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(.quaternary)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color(uiColor: .secondarySystemBackground))
                     if let data {
                         AnimatedGifView(key: item.id, data: data, contentMode: .scaleAspectFit)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .transition(.opacity)
                     } else {
                         ProgressView()
                     }
@@ -69,6 +99,8 @@ struct GifDetailSheet: View {
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .sensoryFeedback(.impact(weight: .medium), trigger: store.contains(item))
 
                     if let fileURL {
                         ShareLink(item: fileURL) {
@@ -76,6 +108,7 @@ struct GifDetailSheet: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
                     }
                 }
 
@@ -88,11 +121,22 @@ struct GifDetailSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
+                if let source = item.sourceURL {
+                    ToolbarItem(placement: .primaryAction) {
+                        Link(destination: source) {
+                            Image(systemName: "safari")
+                        }
+                        .accessibilityLabel("Open on " + (item.providerID == "giphy" ? "GIPHY" : "Tenor"))
+                    }
+                }
             }
             .task(id: item.id) {
-                data = try? await GifLoader.shared.data(for: item.fullURL)
+                let loaded = try? await GifLoader.shared.data(for: item.fullURL)
+                withAnimation(.easeOut(duration: 0.25)) { data = loaded }
                 fileURL = try? await GifLoader.shared.fileURL(for: item)
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }

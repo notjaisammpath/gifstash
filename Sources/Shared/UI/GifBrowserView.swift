@@ -39,6 +39,7 @@ public struct GifBrowserView: View {
     @State private var tab: Tab = .browse
     @State private var showingSettings = false
     @FocusState private var searchFocused: Bool
+    @Namespace private var tabNamespace
 
     private var catalog: GifCatalog { .shared }
     private var store: BookmarkStore { .shared }
@@ -57,6 +58,8 @@ public struct GifBrowserView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
+        .tint(Color("AccentColor"))
+        .sensoryFeedback(.selection, trigger: tab)
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
@@ -75,28 +78,56 @@ public struct GifBrowserView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Picker("View", selection: $tab) {
+            HStack(spacing: 2) {
                 ForEach(Tab.allCases, id: \.self) { value in
-                    Text(value.label).tag(value)
+                    tabButton(value)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            .padding(3)
+            .background(Color.surface, in: Capsule())
 
             Button {
                 showingSettings = true
             } label: {
                 Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .background(Color.surface, in: Circle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
             .accessibilityLabel("Settings")
         }
+    }
+
+    private func tabButton(_ value: Tab) -> some View {
+        let selected = tab == value
+        return Button {
+            withAnimation(.snappy(duration: 0.28)) { tab = value }
+        } label: {
+            Label(value.label, systemImage: value.icon)
+                .symbolVariant(selected ? .fill : .none)
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .foregroundStyle(selected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .background {
+                    if selected {
+                        Capsule()
+                            .fill(.tint)
+                            .matchedGeometryEffect(id: "selectedTab", in: tabNamespace)
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var searchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(searchFocused ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
 
             TextField("Search " + model.provider.displayName, text: $model.query)
                 .textFieldStyle(.plain)
@@ -116,9 +147,14 @@ public struct GifBrowserView: View {
                 .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(.quaternary, in: Capsule())
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.tint.opacity(searchFocused ? 0.8 : 0), lineWidth: 1.5)
+        }
+        .animation(.easeOut(duration: 0.15), value: searchFocused)
     }
 
     private var footer: some View {
@@ -149,18 +185,20 @@ public struct GifBrowserView: View {
         } else if let message = model.errorMessage {
             errorState(message)
         } else if model.isLoading && model.items.isEmpty {
-            centered { ProgressView() }
+            skeleton
         } else if model.isEmptyResult {
-            centered {
-                emptyState(
-                    icon: "magnifyingglass",
-                    title: model.query.isEmpty ? "Nothing trending" : "No results",
-                    detail: model.query.isEmpty ? nil : "Try a different search."
-                )
+            if model.query.isEmpty {
+                ContentUnavailableView("Nothing trending", systemImage: "flame")
+            } else {
+                ContentUnavailableView.search(text: model.query)
             }
         } else {
-            grid(items: model.items, paginates: true)
+            grid(items: model.items, paginates: true, title: browseTitle)
         }
+    }
+
+    private var browseTitle: (String, String) {
+        model.query.isEmpty ? ("Trending", "flame.fill") : ("Results", "sparkle.magnifyingglass")
     }
 
     // MARK: - Bookmarks
@@ -168,28 +206,37 @@ public struct GifBrowserView: View {
     @ViewBuilder
     private var bookmarksContent: some View {
         if store.bookmarks.isEmpty {
-            centered {
-                emptyState(
-                    icon: "bookmark",
-                    title: "No saved GIFs",
-                    detail: "Tap the bookmark on any GIF to keep it here."
-                )
-            }
+            ContentUnavailableView(
+                "No saved GIFs",
+                systemImage: "bookmark",
+                description: Text("Tap the bookmark on any GIF to keep it here.")
+            )
         } else {
-            grid(items: store.bookmarks.map(\.item), paginates: false)
+            grid(items: store.bookmarks.map(\.item), paginates: false, title: nil)
         }
     }
 
     // MARK: - Grid
 
-    private func grid(items: [GifItem], paginates: Bool) -> some View {
-        GeometryReader { geometry in
-            let columns = max(2, Int(geometry.size.width / 118))
+    private func columnCount(for width: CGFloat) -> Int {
+        max(2, Int(width / 118))
+    }
 
+    private func grid(items: [GifItem], paginates: Bool, title: (String, String)?) -> some View {
+        GeometryReader { geometry in
             ScrollView {
+                if let title {
+                    Label(title.0, systemImage: title.1)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 2)
+                        .padding(.bottom, 2)
+                }
+
                 WaterfallGrid(
                     items: items,
-                    columns: columns,
+                    columns: columnCount(for: geometry.size.width),
                     spacing: 6,
                     heightRatio: { 1 / max(0.2, $0.aspectRatio) }
                 ) { item in
@@ -210,65 +257,62 @@ public struct GifBrowserView: View {
                     ProgressView().padding(.vertical, 8)
                 }
             }
+            .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.immediately)
         }
+    }
+
+    /// Placeholder cells shown on first load, shaped like a real page of GIFs.
+    private var skeleton: some View {
+        GeometryReader { geometry in
+            WaterfallGrid(
+                items: SkeletonCell.page,
+                columns: columnCount(for: geometry.size.width),
+                spacing: 6,
+                heightRatio: { $0.heightRatio }
+            ) { cell in
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.surface)
+                    .aspectRatio(1 / cell.heightRatio, contentMode: .fit)
+                    .shimmer()
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityLabel("Loading")
     }
 
     // MARK: - States
 
     private var missingKeyState: some View {
-        centered {
-            VStack(spacing: 10) {
-                emptyState(
-                    icon: "key",
-                    title: "No API key",
-                    detail: "Add a GIPHY key to Config/Secrets.xcconfig, then rebuild."
-                )
-                Button("Settings") { showingSettings = true }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
+        ContentUnavailableView {
+            Label("No API key", systemImage: "key")
+        } description: {
+            Text("Add a GIPHY key to Config/Secrets.xcconfig, then rebuild.")
+        } actions: {
+            Button("Settings") { showingSettings = true }
+                .buttonStyle(.borderedProminent)
         }
     }
 
     private func errorState(_ message: String) -> some View {
-        centered {
-            VStack(spacing: 10) {
-                emptyState(
-                    icon: "exclamationmark.triangle",
-                    title: "Something went wrong",
-                    detail: message
-                )
-                Button("Try Again") { model.reload() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-            }
+        ContentUnavailableView {
+            Label("Something went wrong", systemImage: "wifi.exclamationmark")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Try Again") { model.reload() }
+                .buttonStyle(.borderedProminent)
         }
     }
+}
 
-    private func emptyState(icon: String, title: String, detail: String?) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(.tertiary)
-            Text(title)
-                .font(.subheadline.weight(.medium))
-            if let detail {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(.horizontal, 24)
-    }
+private struct SkeletonCell: Identifiable {
+    let id: Int
+    let heightRatio: Double
 
-    private func centered<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack {
-            Spacer(minLength: 0)
-            content()
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
-    }
+    static let page: [SkeletonCell] = [0.75, 1.0, 0.56, 1.3, 0.8, 0.6, 1.1, 0.7, 0.9, 1.25, 0.56, 0.85]
+        .enumerated()
+        .map { SkeletonCell(id: $0.offset, heightRatio: $0.element) }
 }

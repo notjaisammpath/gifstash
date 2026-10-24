@@ -61,10 +61,9 @@ public struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("App Group", value: AppConfig.appGroupID)
-                        .font(.caption)
+                    LabeledContent("Version", value: Self.version)
                 } footer: {
-                    Text("API keys come from Config/Secrets.xcconfig at build time. GIF content and trending data are supplied by the selected provider.")
+                    Text("GIFs and trending results are provided by the selected source.")
                 }
             }
             .navigationTitle("Settings")
@@ -82,6 +81,13 @@ public struct SettingsView: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
+    }
+
+    private static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(short) (\(build))"
     }
 
     private var ratingBinding: Binding<GifRating> {
