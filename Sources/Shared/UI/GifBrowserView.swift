@@ -36,7 +36,8 @@ public struct GifBrowserView: View {
     }
 
     @State private var model = GifBrowserModel()
-    @State private var tab: Tab = .browse
+    /// Opens on Saved; focusing the search field switches to Search.
+    @State private var tab: Tab = .bookmarks
     @State private var showingSettings = false
     @FocusState private var searchFocused: Bool
     @Namespace private var tabNamespace
@@ -47,6 +48,7 @@ public struct GifBrowserView: View {
     public var body: some View {
         VStack(spacing: 8) {
             header
+            searchField
 
             if tab == .browse {
                 browseContent
@@ -68,7 +70,11 @@ public struct GifBrowserView: View {
             if model.items.isEmpty { model.reload() }
         }
         .onChange(of: searchFocused) { _, focused in
-            if focused { onNeedsRoom() }
+            guard focused else { return }
+            onNeedsRoom()
+            if tab != .browse {
+                withAnimation(.snappy(duration: 0.28)) { tab = .browse }
+            }
         }
         .onChange(of: catalog.selectedID) { _, _ in model.reload() }
         .onChange(of: catalog.rating) { _, _ in model.reload() }
@@ -178,8 +184,6 @@ public struct GifBrowserView: View {
 
     @ViewBuilder
     private var browseContent: some View {
-        searchField
-
         if !catalog.hasAnyKey {
             missingKeyState
         } else if let message = model.errorMessage {
@@ -209,7 +213,7 @@ public struct GifBrowserView: View {
             ContentUnavailableView(
                 "No saved GIFs",
                 systemImage: "bookmark",
-                description: Text("Tap the bookmark on any GIF to keep it here.")
+                description: Text("Search above, then tap the bookmark on any GIF to keep it here.")
             )
         } else {
             grid(items: store.bookmarks.map(\.item), paginates: false, title: nil)
