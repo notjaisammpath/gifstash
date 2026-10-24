@@ -22,6 +22,12 @@ public struct AnimatedGifView: UIViewRepresentable {
         view.clipsToBounds = true
         view.contentMode = contentMode
         view.isUserInteractionEnabled = false
+        // UIImageView's intrinsic size is the GIF's pixel size; without this
+        // SwiftUI lets it push wider than the space it was offered.
+        for axis in [NSLayoutConstraint.Axis.horizontal, .vertical] {
+            view.setContentCompressionResistancePriority(.defaultLow, for: axis)
+            view.setContentHuggingPriority(.defaultLow, for: axis)
+        }
         return view
     }
 
