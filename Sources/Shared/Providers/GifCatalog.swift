@@ -7,7 +7,7 @@ import Observation
 public final class GifCatalog {
     public static let shared = GifCatalog()
 
-    public let providers: [GifProvider]
+    public let providers: [any GifProvider]
     public private(set) var selectedID: String
     public private(set) var rating: GifRating
 
@@ -32,7 +32,7 @@ public final class GifCatalog {
         }
     }
 
-    public var selected: GifProvider {
+    public var selected: any GifProvider {
         providers.first { $0.id == selectedID } ?? providers[0]
     }
 

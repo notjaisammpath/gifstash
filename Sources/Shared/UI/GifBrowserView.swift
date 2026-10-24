@@ -206,7 +206,7 @@ public struct GifBrowserView: View {
                 }
                 .padding(.bottom, 8)
 
-                if model.isLoadingMore {
+                if paginates && model.isLoadingMore {
                     ProgressView().padding(.vertical, 8)
                 }
             }

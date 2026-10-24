@@ -19,6 +19,8 @@ public final class GifBrowserModel {
 
     private var cursor: String?
     private var hasMore = true
+    /// Bumped on every reload so a superseded load cannot write back.
+    private var generation = 0
     private var pendingSearch: Task<Void, Never>?
     private var activeLoad: Task<Void, Never>?
 
@@ -28,7 +30,7 @@ public final class GifBrowserModel {
         self.catalog = catalog
     }
 
-    public var provider: GifProvider { catalog.selected }
+    public var provider: any GifProvider { catalog.selected }
 
     /// True once we have finished a load and genuinely found nothing.
     public var isEmptyResult: Bool {
@@ -40,6 +42,7 @@ public final class GifBrowserModel {
     public func reload() {
         pendingSearch?.cancel()
         activeLoad?.cancel()
+        generation &+= 1
         cursor = nil
         hasMore = true
         errorMessage = nil
@@ -59,11 +62,14 @@ public final class GifBrowserModel {
             // Debounce so typing does not fire a request per keystroke.
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
+            // Clear first: reload() cancels pendingSearch, which is this task.
+            pendingSearch = nil
             reload()
         }
     }
 
     private func fetch(replacing: Bool) async {
+        let myGeneration = generation
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard provider.isConfigured else {
@@ -75,8 +81,11 @@ public final class GifBrowserModel {
 
         if replacing { isLoading = true } else { isLoadingMore = true }
         defer {
-            isLoading = false
-            isLoadingMore = false
+            // Only the newest load owns these flags.
+            if generation == myGeneration {
+                isLoading = false
+                isLoadingMore = false
+            }
         }
 
         let page = GifPage(cursor: replacing ? nil : cursor, limit: 30)
@@ -86,7 +95,7 @@ public final class GifBrowserModel {
                 ? try await provider.trending(rating: catalog.rating, page: page)
                 : try await provider.search(query: trimmed, rating: catalog.rating, page: page)
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == myGeneration else { return }
 
             if replacing {
                 items = results.items
@@ -101,7 +110,7 @@ public final class GifBrowserModel {
         } catch is CancellationError {
             return
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == myGeneration else { return }
             errorMessage = error.localizedDescription
             hasMore = false
         }

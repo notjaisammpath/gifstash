@@ -29,7 +29,7 @@ struct GifThumbnail: View {
 
             bookmarkButton
         }
-        .aspectRatio(item.aspectRatio, contentMode: .fill)
+        .aspectRatio(item.aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
@@ -64,7 +64,11 @@ struct GifThumbnail: View {
         do {
             data = try await GifLoader.shared.data(for: item.previewURL)
         } catch {
-            if !(error is CancellationError) {
+            // Scrolling cancels in-flight loads. URLSession reports that as
+            // URLError.cancelled rather than CancellationError, and neither is
+            // a failure worth showing the user.
+            guard !Task.isCancelled else { return }
+            if (error as? URLError)?.code != .cancelled {
                 failed = true
             }
         }

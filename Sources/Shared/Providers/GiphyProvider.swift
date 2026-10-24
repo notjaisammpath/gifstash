@@ -15,18 +15,37 @@ public struct GiphyProvider: GifProvider {
 
     public var isConfigured: Bool { apiKey != nil }
 
+    /// GIPHY rejects an offset past these, so paging has to stop there even
+    /// when total_count claims there is more.
+    private static let searchMaxOffset = 4999
+    private static let trendingMaxOffset = 499
+    /// q is capped at 50 characters.
+    private static let maxQueryLength = 50
+
     public func search(query: String, rating: GifRating, page: GifPage) async throws -> GifResults {
-        try await fetch(path: "search", rating: rating, page: page, extra: [
-            URLQueryItem(name: "q", value: query)
-        ])
+        let trimmed = String(query.prefix(Self.maxQueryLength))
+        return try await fetch(
+            path: "search",
+            maxOffset: Self.searchMaxOffset,
+            rating: rating,
+            page: page,
+            extra: [URLQueryItem(name: "q", value: trimmed)]
+        )
     }
 
     public func trending(rating: GifRating, page: GifPage) async throws -> GifResults {
-        try await fetch(path: "trending", rating: rating, page: page, extra: [])
+        try await fetch(
+            path: "trending",
+            maxOffset: Self.trendingMaxOffset,
+            rating: rating,
+            page: page,
+            extra: []
+        )
     }
 
     private func fetch(
         path: String,
+        maxOffset: Int,
         rating: GifRating,
         page: GifPage,
         extra: [URLQueryItem]
@@ -50,7 +69,7 @@ public struct GiphyProvider: GifProvider {
         let returned = payload.data.count
         let next = offset + returned
         let reachedTotal = payload.pagination?.totalCount.map { next >= $0 } ?? false
-        let exhausted = returned == 0 || reachedTotal
+        let exhausted = returned == 0 || reachedTotal || next > maxOffset
 
         return GifResults(items: items, nextCursor: exhausted ? nil : String(next))
     }
