@@ -1,0 +1,6 @@
+# This project is built on macOS; keep LF in the repo and in working copies.
+* text=auto eol=lf
+
+*.png binary
+*.gif binary
+*.jpg binary

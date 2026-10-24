@@ -1,0 +1,23 @@
+# Secrets
+Config/Secrets.xcconfig
+
+# Generated project
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+.swiftpm/
+Packages/
+.build/
+
+# Local agent settings
+.claude/
+
+# macOS
+.DS_Store

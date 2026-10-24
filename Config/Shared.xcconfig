@@ -1,0 +1,18 @@
+// Project-wide defaults. Anything secret or machine-specific belongs in
+// Secrets.xcconfig, which is gitignored and included at the bottom so its
+// assignments win.
+
+BUNDLE_ID_PREFIX = com.example
+APP_GROUP_ID = group.$(BUNDLE_ID_PREFIX).gifstash
+
+APP_BUNDLE_ID = $(BUNDLE_ID_PREFIX).gifstash
+EXTENSION_BUNDLE_ID = $(BUNDLE_ID_PREFIX).gifstash.messages
+
+// Empty by default. AppConfig treats an empty string as "no key".
+GIPHY_API_KEY =
+TENOR_API_KEY =
+
+// Set this to your Apple Developer team to build onto a device.
+DEVELOPMENT_TEAM =
+
+#include? "Secrets.xcconfig"
