@@ -63,7 +63,7 @@ public struct SettingsView: View {
                 Section {
                     LabeledContent("Version", value: Self.version)
                 } footer: {
-                    Text("GIFs and trending results are provided by the selected source.")
+                    Text(catalog.selected.attribution)
                 }
             }
             .navigationTitle("Settings")

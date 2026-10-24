@@ -55,8 +55,6 @@ public struct GifBrowserView: View {
             } else {
                 bookmarksContent
             }
-
-            footer
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
@@ -161,23 +159,6 @@ public struct GifBrowserView: View {
                 .strokeBorder(.tint.opacity(searchFocused ? 0.8 : 0), lineWidth: 1.5)
         }
         .animation(.easeOut(duration: 0.15), value: searchFocused)
-    }
-
-    private var footer: some View {
-        HStack {
-            Text(model.provider.attribution)
-            Spacer()
-            if tab == .bookmarks {
-                Text(savedCountLabel)
-            }
-        }
-        .font(.caption2)
-        .foregroundStyle(.tertiary)
-        .padding(.bottom, 6)
-    }
-
-    private var savedCountLabel: String {
-        String(store.bookmarks.count) + " saved"
     }
 
     // MARK: - Browse
